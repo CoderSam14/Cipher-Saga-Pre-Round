@@ -1,0 +1,136 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strict Secure Quiz</title>
+  <style>
+    body, html {
+      margin: 0; padding: 0;
+      height: 100%; width: 100%;
+      background: black;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    iframe {
+      width: 100%; height: 100%;
+      border: none; display: none;
+    }
+    #overlay {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: black;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      z-index: 99999;
+    }
+    #overlay h1 {
+      color: white; margin-bottom: 20px;
+      text-align: center; white-space: pre-line;
+    }
+    button {
+      font-size: 24px; padding: 15px 30px;
+      background: green; color: white;
+      border: none; border-radius: 10px;
+      cursor: pointer;
+    }
+    #resumeBtn { background: orange; display: none; }
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <h1 id="overlayText">Click Start to Begin Quiz</h1>
+  <button id="startBtn">Start Quiz</button>
+  <button id="resumeBtn">Resume Quiz</button>
+</div>
+
+<iframe id="quizFrame" src="https://forms.fillout.com/t/opy1bsm9MFus"></iframe>
+
+<script>
+  let violations = 0, maxViolations = 4;
+  const overlay = document.getElementById("overlay");
+  const overlayText = document.getElementById("overlayText");
+  const startBtn = document.getElementById("startBtn");
+  const resumeBtn = document.getElementById("resumeBtn");
+  const quizFrame = document.getElementById("quizFrame");
+
+  function goFullscreen() {
+    if (document.documentElement.requestFullscreen) return document.documentElement.requestFullscreen();
+    if (document.documentElement.webkitRequestFullscreen) return document.documentElement.webkitRequestFullscreen();
+    if (document.documentElement.msRequestFullscreen) return document.documentElement.msRequestFullscreen();
+  }
+
+  function startQuiz() {
+    goFullscreen().then(() => {
+      overlay.style.display = "none";
+      quizFrame.style.display = "block";
+    });
+  }
+
+  function showResume(reason) {
+    quizFrame.style.display = "none";
+    overlay.style.display = "flex";
+    startBtn.style.display = "none";
+    resumeBtn.style.display = "block";
+    overlayText.innerText = `⚠️ ${reason}\n(${violations}/${maxViolations})\nClick Resume to continue.`;
+  }
+
+  function endQuiz() {
+    quizFrame.style.display = "none";
+    overlay.style.display = "flex";
+    overlayText.innerText = "❌ Quiz ended due to multiple violations.";
+    resumeBtn.style.display = "none";
+    startBtn.style.display = "none";
+  }
+
+  function violation(reason) {
+    violations++;
+    if (violations >= maxViolations) endQuiz();
+    else showResume(reason);
+  }
+
+  startBtn.addEventListener("click", startQuiz);
+
+  resumeBtn.addEventListener("click", () => {
+    goFullscreen().then(() => {
+      overlay.style.display = "none";
+      quizFrame.style.display = "block";
+    });
+  });
+
+  // Detect tab switch or minimizing
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && quizFrame.style.display === "block") violation("Tab switch/minimize detected");
+  });
+
+  // Poll focus every second to detect switching to other apps
+  setInterval(() => {
+    if (quizFrame.style.display === "block" && !document.hasFocus()) {
+      violation("Window lost focus (switched to another app/browser)");
+    }
+  }, 1000);
+
+  // Detect exiting fullscreen manually
+  document.addEventListener("fullscreenchange", () => {
+    if (!document.fullscreenElement && quizFrame.style.display === "block") violation("Fullscreen exit detected");
+  });
+
+  // Disable right-click & dev tools
+  document.addEventListener("contextmenu", e => e.preventDefault());
+  document.onkeydown = e => {
+    if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J"))) return false;
+  };
+
+  // Detect Alt+F4 / Ctrl+W / Close tab attempts
+  window.addEventListener("beforeunload", function (e) {
+    violation("Attempted to close window (Alt+F4 / Ctrl+W)");
+    e.preventDefault();
+    e.returnValue = ""; // Required for Chrome/Edge
+    return "";
+  });
+</script>
+
+</body>
+</html>
